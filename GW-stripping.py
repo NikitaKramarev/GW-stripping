@@ -1,23 +1,23 @@
 import math
-#import numpy as np
-#import matplotlib.pyplot as plt
 ############################################################################################
-# function 1
-# Approximations to the Radii of Roche Lobes
-#
-# input variables:
-# input variables:
-# q = m2/M
-# M = m1 + m2 - total mass in M_solar
-# a - distance between NSs in km
-# rel = 'on' or 'off' - relativistic correction 
-#
-# output variables:
-# f(q) = R_roche/a
-# f_q = d(f(q))/dq
-# f_a = a*d(f(a))/da (if rel = 'on')
-
 def roche(q, rel, M, a):
+    """ function 1
+Approximations to the Radii of Roche Lobes according to Eggleton or Ratcovic
+
+  input variables:
+    q(float): m2/M, mass ratio
+    rel(str): 'on' or 'off', relativistic correction (see Ratcovic et al.)
+    M(float): m1 + m2, total mass of the binary NSs system in M_solar
+    a(float): distance between NSs in km
+  
+  output variables:
+    f(float): R_roche/a
+    f_q(float): d(f(q))/dq, derivative
+    f_a(float): a*d(f(a))/da (if rel = 'on')
+
+  raises: SystemExit
+  """
+
     qs = q/(1-q)                       # qs = m2/m1
     aq = 0.49
     bq = 0.6
@@ -56,22 +56,23 @@ def roche(q, rel, M, a):
     return f, f_q, f_a
 
 ############################################################################################
-# function 2
-# Mass-radius formulas for low-mass neutron star in NS-NS or BH-NS coalescing binaries
-# according to Sotani et al.
-#
-# input variables:
-# r2 - radius in km or
-# m2 - mass in M_solar
-# m2_or_r2 = 'm2' or 'r2'
-# eta = (K0*L**2)**(1/3) - auxiliary parameter in MeV (see Sotani et al.)
-#
-# output variables:
-# m2 or r2
-# m2_r2 = d(ln(m2))/d(ln(r2))
-# r2_m2 = d(ln(r2))/d(ln(m2))
-
 def mass(input_var, m2_or_r2, eta):
+    """ function 2
+Mass-radius formulas for low-mass neutron star in NS-NS or BH-NS coalescing binaries
+according to Sotani et al.
+
+  input variables:
+    input_var(float): radius in km (r2) or mass in M_solar (m2)
+    m2_or_r2(str): 'm2' or 'r2', type of variable
+    eta(float): (K0*L**2)**(1/3), auxiliary parameter in MeV (see Sotani et al.)
+
+  output variables:
+    output_var(float): mass in M_solar (m2) or radius in km (r2)
+    m2_r2(float): d(ln(m2))/d(ln(r2)), logarithmic derivative
+    r2_m2(float): d(ln(r2))/d(ln(m2)), logarithmic derivative
+
+  raises: SystemExit
+  """
     eta = eta/100                      # normalisation 
     x1 = 2.953286590373                # 2*G*M_solar/km*c**2
     a1 = 0.279-0.235*eta
@@ -93,7 +94,7 @@ def mass(input_var, m2_or_r2, eta):
             z1 = z+1
             z2 = z+2
             r2_2 = (z+1)**2/(z**2+2*z)
-            r2_2 = r2_2*x1*m2          # in km (!!!)
+            r2_2 = r2_2*x1*m2          # in km 
 
             r2_m2 = x1*m2*2*z1*(z*z2-z1**2)/(z**2*z2**2)
             r2_m2 = r2_m2*(2*a2*uc+b2)
@@ -143,30 +144,38 @@ def mass(input_var, m2_or_r2, eta):
     if uc > 2:
         print('Warning, uc =', uc, ' (rho_c > 2*rho_nucl), so mass-radius approximation of Sotani may be not valid!')
         input('Press to continue...')
-    elif uc < 0.9:
-        print('Warning, uc =', uc, ' (rho_c < 0.9*rho_nucl), so mass-radius approximation of Sotani may be not valid!')
+    elif uc < 0.75:
+        print('Warning, uc =', uc, ' (rho_c < 0.75*rho_nucl), so mass-radius approximation of Sotani may be not valid!')
         input('Press to continue...')
             
     return output_var, m2_r2, r2_m2
 
 ############################################################################################
-# Main function
-# Stage 1: R2<R_roche
-#
-# input variables:
-# m1 - mass of neutron star (NS) in M_solar
-# m2 - mass of low-mass NS in M_solar
-# r1 - radius of NS in km
-# a0  - initial distance between NSs in km
-#
-# additional parameters:
-# eta = (K0*L**2)**(1/3) - auxiliary parameter in MeV (see Sotani et al.)
-# rel = 'on' or 'off' - relativistic correction for the Roche lobe
-# max_time in s
-#
-# output files:
-# 'stripping_dist_mass.dat' - [time in s; distance between NSs in km; q=m2/M; m2 in M_solar]
-# 'stripping_rad.dat' - [time is s; GW luminosity in erg/s; nutrino luminosity in erq/s]
+#def stripping(m1,m2,r1,a0,eta,rel,max_time):
+    """ Main function
+Final evolution of close neutron star binary, stripping model
+
+  input variables:
+    m1(float): mass of neutron star (NS) in M_solar
+    m2(float): mass of low-mass NS in M_solar
+    r1(float): radius of NS in km
+    a0(float): initial distance between NSs in km
+
+  additional parameters:
+    eta(float): (K0*L**2)**(1/3), auxiliary parameter in MeV (see Sotani et al.)
+    rel(str): 'on' or 'off', relativistic correction for the Roche lobe
+    max_time(float): stopping time in s
+
+  output files:
+    'stripping.dat' - [time in s; distance between NSs in km; q=m2/M; m2 in M_solar; GW luminosity in erg/s]
+    'stripping_rad.dat' - [time in s; nutrino luminosity in erq/s]
+
+  raises: SystemExit
+
+  note:
+    see file description_rus.pdf for details
+    """
+#Stage 1: R2<R_roche
 
 m1  = 1.4 
 m2  = 0.3 
@@ -174,7 +183,27 @@ r1  = 10
 a0  = 100
 eta = 110 
 rel = 'on'
-max_time = 3
+max_time = 1
+
+
+if eta > 200:
+    print('Error: eta must be less than 200!')
+    raise SystemExit(1)
+if eta < 60:
+    print('Error: eta must be more than 60!')
+    raise SystemExit(1)
+if m1 < 0:
+    print('Error: m1 must be positive!')
+    raise SystemExit(1)
+if m1 > 2.3:
+    print('Warning, m1 have a mass of BH!')
+    input('Press to continue...')
+if m2 < 0:
+    print('Error: m2 must be positive!')
+    raise SystemExit(1)
+if m2 > 1:
+    print('Warning, mass of m1 is more than 1 M_sol so approximation of Sotani may be not valid!')
+    input('Press to continue...')
 
 M  = m1+m2                            # total mass
 q  = m2/M                             # mass ratio (not according to Bisicalo!)
@@ -182,6 +211,8 @@ x1 = 2.953286590373                   # 2*G*M_solar/km*c**2
 t0 = math.sqrt(2*a0/(x1*M))           
 t0 = t0*a0/(299792.458)               # the characteristic time scale in s
 E0 = x1*M**2/(2*a0)*1.7871746729e+54  # the characteristic energy in erg
+L_gw = (2/5)*(x1/a0)**4
+L_gw = (L_gw/a0)*5.357734049e+59       # the characteristic GW luminosity in erg/s
 alpha_G = (2*x1*M/a0)**(5/2)/5        # parameter
 eps = 1e-8
 
@@ -212,10 +243,13 @@ else:
 
 N1 = 1000
 t = 0
+x2=1
+LG = M**5*q**2*(1-q)**2/x2**5
+LG = LG*L_gw
 
 file1 = open('stripping_dist_mass.dat', 'w')
 file2 = open('stripping_rad.dat', 'w')
-line = (-t1*t0,a0,q,m2)
+line = (-t1*t0,a0,q,m2,LG)
 for s in line:
     file1.write('%20.8e' % s)         # Writing part
 file1.write('\n')     
@@ -227,13 +261,13 @@ L_nu = 0
 for i in range(N1):                   # Writing part and calculations of LG luminosity 
     t  = t+tau1
     x2  = (1-(8*q*(1-q)*alpha_G*t))**(1/4)
-    LG = q*q_1*(1/x2-1/x1)/(2*tau1)
-    LG = LG*(E0/t0)
-    line = ((t-t1)*t0,x2*a0,q,m2)
+    LG = M**5*q**2*(1-q)**2/x2**5
+    LG = LG*L_gw
+    line = ((t-t1)*t0,x2*a0,q,m2,LG)
     for s in line:
         file1.write('%20.8e' % s)       
     file1.write('\n')    
-    line = ((t-tau1/2-t1)*t0,LG,L_nu)
+    line = ((t-tau1/2-t1)*t0,L_nu)
     for s in line:
         file2.write('%20.8e' % s)       
     file2.write('\n') 
@@ -249,7 +283,8 @@ f, f_q, f_a = roche(q, rel, M, a)
 r2 = a0*x1*f
 m2, m2_r2, r2_m2 = mass(r2, 'r2', eta)
 q1 = q
-stab = f_q*q1/f-2*(1-2*q1)/(1-q1)
+stab_corr = 1+f_a/f
+stab = f_q*q1/f-2*(1-2*q1)*stab_corr/(1-q1)
 corr = 0.005
 
 while r2_m2 > (stab+corr):              # stability testing
@@ -293,16 +328,15 @@ while r2_m2 > (stab+corr):              # stability testing
 
     t = t+tau2
 
-    LG = q1*(1-q1)/x1                   # Writing part and calculations of luminosities
-    LG = LG-q2*(1-q2)/x2
-    LG = LG/(2*tau2)*(E0/t0)
+    LG = M**5*q2**2*(1-q2)**2/x2**5       # Writing part and calculations of luminosities
+    LG = LG*L_gw
     L_nu = (1-(q1+q2)/2)*(q1-q2)/tau2
     L_nu = L_nu*(E0*a0/(t0*r1))
-    line = ((t-t1)*t0,x2*a0,q2,q2*M)
+    line = ((t-t1)*t0,x2*a0,q2,q2*M,LG)
     for s in line:
         file1.write('%20.8e' % s)       
     file1.write('\n') 
-    line = ((t-tau2/2-t1)*t0,LG,L_nu)
+    line = ((t-tau2/2-t1)*t0,L_nu)
     for s in line:
         file2.write('%20.8e' % s)       
     file2.write('\n')
@@ -317,7 +351,8 @@ while r2_m2 > (stab+corr):              # stability testing
     f, f_q, f_a = roche(q2, rel, M, a)
     r2 = a0*x2*f
     m2, m2_r2, r2_m2 = mass(r2, 'r2', eta)
-    stab = f_q*q2/f-2*(1-2*q2)/(1-q2)
+    stab_corr = 1+f_a/f
+    stab = f_q*q2/f-2*(1-2*q2)*stab_corr/(1-q2)
 
     if ((t-t1)*t0>max_time): 
         print('Calculations were stopped because time of stable mass transfer > ', max_time,'sec !')
@@ -326,7 +361,6 @@ while r2_m2 > (stab+corr):              # stability testing
 file1.close()
 file2.close()
 print('Done!')
-
 ############################################################################################
 
     
