@@ -1,38 +1,22 @@
 import gw_stripping
 import math
+import fire
+import sys
+import numpy as np
+import pandas
 
 
 def er(msg):
-    print(f"Error: {msg}")
-    exit(1)
+    raise Exception(f"Fatal error:{msg}")
+
+def write_res(res, out):
+    df = pandas.DataFrame(data=res)
+    s = df.to_csv(header=None, index=False)
+    out.write(s)
 
 
-def run(m1=1.4, m2=0.3, r1=10, a0=100, eta=110, rel="off", max_time=1):
-    """
-    Main function
-    Final evolution of close neutron star binary, stripping model
 
-    input variables:
-    m1(float): mass of neutron star (NS) in M_solar
-    m2(float): mass of low-mass NS in M_solar
-    r1(float): radius of NS in km
-    a0(float): initial distance between NSs in km
-
-    additional parameters:
-    eta(float): (K0*L**2)**(1/3), auxiliary parameter in MeV (see Sotani et al.)
-    rel(str): 'on' or 'off', relativistic correction for the Roche lobe
-    max_time(float): stopping time in s
-
-  output files:
-    'stripping.dat' - [time in s; distance between NSs in km; q=m2/M; m2 in M_solar; GW luminosity in erg/s]
-    'stripping_rad.dat' - [time in s; nutrino luminosity in erq/s]
-
-  raises: SystemExit
-
-  note:
-    see file description_rus.pdf for details
-    """
-
+def run(m1, m2, r1, a0, eta, rel, max_time):
     M = m1+m2                             # total mass
     q = m2/M                              # mass ratio (not according to Bisicalo!)
     x1 = 2.953286590373                   # 2*G*M_solar/km*c**2
@@ -45,7 +29,7 @@ def run(m1=1.4, m2=0.3, r1=10, a0=100, eta=110, rel="off", max_time=1):
     eps = 1e-8
 
     f, f_q, f_a = gw_stripping.roche(q, rel, M, a0)
-    r2, m2_r2, r2_m2 = gw_stripping.mass(m2, 'm2', eta)
+    r2, m2_r2, r2_m2 = gw_stripping.mass_to_radius(m2, eta)
 
     if r2 > a0*f:
         er('error: start R2 > R_roche, increase start distance a0!')
@@ -72,40 +56,44 @@ def run(m1=1.4, m2=0.3, r1=10, a0=100, eta=110, rel="off", max_time=1):
     LG = M**5*q**2*(1-q)**2/x2**5
     LG = LG*L_gw
 
-    file1 = open('stripping_dist_mass.dat', 'w')
-    file2 = open('stripping_rad.dat', 'w')
-    line = (-t1*t0, a0, q, m2, LG)
-    for s in line:
-        file1.write('%20.8e' % s)         # Writing part
-    file1.write('\n')
-
     tau1 = t1/N1
-    x1 = 1
-    L_nu = 0
-    for _ in range(N1):                   # Writing part and calculations of LG luminosity
-        t = t+tau1
-        x2 = (1-(8*q*(1-q)*alpha_G*t))**(1/4)
-        LG = M**5*q**2*(1-q)**2/x2**5
-        LG = LG*L_gw
-        line = ((t-t1)*t0, x2*a0, q, m2, LG)
-        for s in line:
-            file1.write('%20.8e' % s)
-        file1.write('\n')
-        line = ((t-tau1/2-t1)*t0, L_nu)
-        for s in line:
-            file2.write('%20.8e' % s)
-        file2.write('\n')
-        x1 = x2
+    res_init = [-t1*t0, a0, q, m2, LG]
+
+    t_array = np.linspace(0, t1, N1)
+
+    x2_array = np.empty(N1)
+    for i, x in enumerate(t_array): x2_array[i] = ((1-(8*q*(1-q)*alpha_G*x))**(1/4)) * a0
+    x1 = x2_array[-1] / a0
+
+    time_array = np.empty(N1)
+    for i, x in enumerate(t_array): time_array[i] = (x-t1)*t0
+    
+    q_array = np.full(N1, q)
+    m2_array = np.full(N1, m2)
+
+    LG_array = np.empty(N1)
+    for i, x in enumerate(x2_array): LG_array[i] = (M**5*q**2*(1-q)**2/(x/a0)**5) * L_gw 
+
+    res1 = list(zip(time_array, x2_array, q_array, m2_array, LG_array))
+
+    time2_array = np.empty(N1 + 1)
+    for i, x in enumerate(t_array): time2_array[i+1] = (x/2 - t1) * t0
+
+    L_nu = np.empty(N1)
+
+    res2 = list(zip(time2_array, L_nu[1:-1]))
+
     ###########################################################################
     # Stage 2: R2=R_roche, stable mass transfer
 
+    t = t1
     tau2 = tau1
     chi = 0.55                            # parameter of the scheme
 
     a = x1*a0
     f, f_q, f_a = gw_stripping.roche(q, rel, M, a)
     r2 = a0*x1*f
-    m2, m2_r2, r2_m2 = gw_stripping.mass(r2, 'r2', eta)
+    m2, m2_r2, r2_m2 = gw_stripping.radius_to_mass(r2, eta)
     q1 = q
     stab_corr = 1+f_a/f
     stab = f_q*q1/f-2*(1-2*q1)*stab_corr/(1-q1)
@@ -122,7 +110,7 @@ def run(m1=1.4, m2=0.3, r1=10, a0=100, eta=110, rel="off", max_time=1):
             a = x2*a0
             f, f_q, f_a = gw_stripping.roche(q2, rel, M, a)
             r2 = a0*x2*f
-            m2, m2_r2, r2_m2 = gw_stripping.mass(r2, 'r2', eta)
+            m2, m2_r2, r2_m2 = gw_stripping.radius_to_mass(r2, eta)
 
             q_2 = 1-q2
             f1 = 1/(q2*q_2*math.sqrt(x2))
@@ -152,19 +140,17 @@ def run(m1=1.4, m2=0.3, r1=10, a0=100, eta=110, rel="off", max_time=1):
 
         t = t+tau2
 
-        # Writing part and calculations of luminosities
+        # Calculations of luminosities
         LG = M**5*q2**2*(1-q2)**2/x2**5
         LG = LG*L_gw
         L_nu = (1-(q1+q2)/2)*(q1-q2)/tau2
         L_nu = L_nu*(E0*a0/(t0*r1))
+
         line = ((t-t1)*t0, x2*a0, q2, q2*M, LG)
-        for s in line:
-            file1.write('%20.8e' % s)
-        file1.write('\n')
+        res1.append(list(line))
+
         line = ((t-tau2/2-t1)*t0, L_nu)
-        for s in line:
-            file2.write('%20.8e' % s)
-        file2.write('\n')
+        res2.append(list(line))
 
         if (abs((q2-q1)/q1) < 1.e-4 and abs((x2-x1)/x1) < 1.e-4):
             tau2 = tau2*2
@@ -177,28 +163,46 @@ def run(m1=1.4, m2=0.3, r1=10, a0=100, eta=110, rel="off", max_time=1):
         a = x2*a0
         f, f_q, f_a = gw_stripping.roche(q2, rel, M, a)
         r2 = a0*x2*f
-        m2, m2_r2, r2_m2 = gw_stripping.mass(r2, 'r2', eta)
+        m2, m2_r2, r2_m2 = gw_stripping.radius_to_mass(r2, eta)
         stab_corr = 1+f_a/f
         stab = f_q*q2/f-2*(1-2*q2)*stab_corr/(1-q2)
 
         if ((t-t1)*t0 > max_time):
             print(
-                'Calculations were stopped because time of stable mass transfer > ', max_time, 'sec !')
+                'Calculations were stopped because time of stable mass transfer > ', max_time, 'sec !', file=sys.stderr)
             break
 
-    file1.close()
-    file2.close()
-    print('Done!')
+    return res1, res2
 
 
-def main():
-    m1 = float(input("m1: "))
-    m2 = float(input("m2: "))
-    r1 = float(input("r1: "))
-    a0 = float(input("a0: "))
-    eta = float(input("eta: "))
-    rel = input("rel: ")
-    max_time = float(input("max_time: "))
+out1_path_default = "stripping_dist_mass.dat"
+out2_path_default = "stripping_rad.dat"
+def main(m1=1.4, m2=0.3, r1=10, a0=100, eta=110, rel="off",
+ max_time=1, out1_path=out1_path_default, out2_path=out2_path_default):
+    """
+    Main function
+    Final evolution of close neutron star binary, stripping model
+
+    input variables:
+    m1(float): mass of neutron star (NS) in M_solar
+    m2(float): mass of low-mass NS in M_solar
+    r1(float): radius of NS in km
+    a0(float): initial distance between NSs in km
+    out1_path: stripping dist mass output file
+    out2_path: stripping rad output file
+
+    additional parameters:
+    eta(float): (K0*L**2)**(1/3), auxiliary parameter in MeV (see Sotani et al.)
+    rel(str): 'on' or 'off', relativistic correction for the Roche lobe
+    max_time(float): stopping time in s
+
+    output files:
+    'stripping.dat' - [time in s; distance between NSs in km; q=m2/M; m2 in M_solar; GW luminosity in erg/s]
+    'stripping_rad.dat' - [time in s; nutrino luminosity in erq/s]
+
+    note:
+    see file description_rus.pdf for details
+    """
 
     if not (rel in ("on", "off")):
         er("wrong rel")
@@ -212,8 +216,8 @@ def main():
     if eta < 60:
         er("error: eta must be more than 60!")
 
-    if m1 < 0:
-        er('error: m1 must be positive!')
+    if not (m2 > 0.1 and m2 < 0.8):
+        er('error: m2 must be in (0.1, 0.8)!')
 
     if m2 < 0: 
         er('error: m2 must be positive!')
@@ -224,15 +228,22 @@ def main():
     if m1 > 2.3:
         print('Warning, m1 have a mass of BH!')
 
-    run(m1=m1, m2=m2, r1=r1, a0=a0, eta=eta, rel=rel, max_time=max_time)
+    
+    with open(out1_path, 'w') as out1:
+        with open(out2_path, 'w') as out2:
+            res1, res2 = run(m1=m1, m2=m2, r1=r1, a0=a0, eta=eta, rel=rel, max_time=max_time)
+            write_res(res1, out1)
+            write_res(res2, out2)
+
 
 
 if __name__ == "__main__":
-    m1=1.4
-    m2=0.3
-    r1=10
-    a0=100
-    eta=110
-    rel="on"
-    max_time=1
-    run(m1=m1, m2=m2, r1=r1, a0=a0, eta=eta, rel=rel, max_time=max_time)
+    # m1=1.4
+    # m2=0.3
+    # r1=10
+    # a0=100
+    # eta=110
+    # rel="on"
+    # max_time=1
+    # run(m1=m1, m2=m2, r1=r1, a0=a0, eta=eta, rel=rel, max_time=max_time)
+    fire.Fire(main)

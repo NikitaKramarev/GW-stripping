@@ -66,11 +66,11 @@ def local_file(path):
 
 @pytest.mark.parametrize('inp, m2_or_r2, eta, res', get_mass_data(local_file("mass.txt"), "r2"))
 def test_mass_r2(inp, m2_or_r2, eta, res):
-    f, _, _ = gw_stripping.mass(inp, m2_or_r2, eta)
+    f, _, _ = gw_stripping.radius_to_mass(inp, eta)
     numpy.testing.assert_allclose(f, res, atol=0.07)
 
 
 @pytest.mark.parametrize('inp, m2_or_r2, eta, res', get_mass_data(local_file("mass.txt"), "m2"))
 def test_mass_m2(inp, m2_or_r2, eta, res):
-    f, _, _ = gw_stripping.mass(inp, m2_or_r2, eta)
+    f, _, _ = gw_stripping.mass_to_radius(inp, eta)
     numpy.testing.assert_allclose(f, res, rtol=0.1)

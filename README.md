@@ -19,9 +19,9 @@ max_time of calculations in s
     
 ## output files:
  
-'stripping_dist_mass.dat' - [time in s; distance between NSs in km; q=m2/M; m2 in M_solar, GW luminosity in erg/s]
+'stripping_dist_mass.dat' - [time in s; distance between NSs in km; q=m2/M; m2 in M_solar]
  
-'stripping_rad.dat' - [time is s; nutrino luminosity in erq/s]
+'stripping_rad.dat' - [time is s; GW luminosity in erg/s; nutrino luminosity in erq/s]
  
 ## Additional functions in stripping.py: "mass" and "roche".
  

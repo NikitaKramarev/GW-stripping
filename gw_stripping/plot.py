@@ -2,8 +2,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 def main():
-    fd_dist_mas = pd.read_table("stripping_dist_mass.dat", header=None, delimiter="    ")
-    fd_rad = pd.read_table("stripping_rad.dat", header=None, delimiter="    ")
+    fd_dist_mas = pd.read_table("stripping_dist_mass.dat", delimiter=",", header=None)
+    fd_rad = pd.read_table("stripping_rad.dat", delimiter=",", header=None)
 
     plt.plot(fd_rad[0], fd_rad[1], '.', label="Neutrino")
     plt.plot(fd_dist_mas[0], fd_dist_mas[4], '.', label="GW")
